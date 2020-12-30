@@ -1,0 +1,157 @@
+Password is t4rnt4bl3s
+Domain name is matthewchan.com
+
+ASA Configuration
+{
+Part 1:
+
+Step 1: 
+interface vlan 1
+namif inside 
+ip address 192.168.1.1 255.255.255.0
+security-level 100
+
+interface vlan 2 
+nameif outside 
+ip add 1.1.1.1 255.255.255.252
+security-level 0
+
+interface vlan 3
+ip add 192.168.2.3 255.255.255.0
+nameif dmz
+security-level 70
+
+Check connection to 192.168.1.1 from Michael Scott
+
+Step 2 Getting connectivity:
+a) Routing 
+route outside 0.0.0.0 0.0.0.0 1.1.1.2
+
+b)PAT using Network Objects
+object network inside-net 
+subnet 192.168.1.0 255.255.255.0 
+nat (inside,outside) dynamic interface
+
+Test the ping from Michael Scott to 1.1.1.2, why does it not work?
+
+c) Create the class-map, policy-map, and service-policy. Add the inspection of ICMP traffic to the policy map list
+class-map inspection_default
+match default-inspection-traffic
+exit
+policy-map global_policy
+class inspection_default
+inspect icmp
+exit
+service-policy global_policy global
+}
+
+Step 3, configuring DHCP{
+
+Give out the addresses starting from 192.168.1.4.
+Make it so that it also hands out the dns ip of 192.168.2.1
+Enable the DHCP daemon.
+
+dhcpd address 192.168.1.4 - 192.168.1.35 inside 
+dhcpd dns 192.168.2.1 interface inside 
+dhcpd enable inside 
+}
+
+Step 4, Configure AAA to use local database for authentication{
+
+So Michael needs to be authenticated, give him the username of 
+prison_mike and the password dementors when he wants to ssh into network devices.
+
+username prison_mike password dementors
+aaa authentication ssh console LOCAL
+}
+
+Step 5, Configure Remote access to the ASA{
+Only allow SSH connections from the inside network and set the timeout to 5 seconds
+
+crypto key generate rsa modulus 2048
+no 
+ssh 192.168.1.2 255.255.255.0 inside
+ssh timeout 5
+}
+
+Step 6, Configuring the DMZ{
+int vlan 3 
+ip add 192.168.2.3 255.255.255.0
+no forward interface vlan 1
+nameif dmz 
+security-level 70
+}
+
+Step 7, Configure Static NAT to the DMZ server{
+object network dmz-server
+host 192.168.2.1
+nat (dmz,outside) static 1.2.1.1
+exit
+}
+
+Step 8, Configure an ACL to allow access to the DMZ server from the internet{
+access-list OUTSIDE-DMZ permit icmp any host 192.168.2.1
+access-list OUTSIDE-DMZ permit tcp any host 192.168.2.1 eq 80
+access-group OUTSIDE-DMZ in interface outside 
+}
+
+Part 2:
+
+;)
+I *accidentally* typed the wrong password in R1. To show that you understand password recovery,
+I made the password unencrypted so make the same password encrypted to get 22 points. 
+answer: enable secret battlestar_galactica AND service password-encryption
+
+Step 1: 
+All the routers have been addressed but, for some reason Mr Stubblefield 
+cannot communicate with the 1.0.0.0 /8 network. Why? Howcome he can communicate with the 3.0.0.0/8 and 2.0.0.0/8 Network?
+Made OSPF preconfigured but R1 is missing a network
+Made 2 default gateways on R0
+
+Step 2 (didn't implement this):
+Uh oh, Matthew Chan tries to ping 1.1.1.2 but it does not work. FIX IT
+or you will be fired lol.
+
+ip route 1.1.1.2 255.255.255.255 f1/0 on R2
+ip route 1.1.1.2 255.255.255.255 f0/0 on R1
+
+Step 3:
+Make the default gateway for Vance refrigeration and Mr Stubblefield, Fault Tolerant. 
+Make the virtual IP address the last IP of each subnet and make sure Mr Stubblefield 
+can communicate with others after the configuration.
+
+R1{
+f0/0
+standby 1 ip 1.1.2.254
+standby 1 priority 50
+standby 1 preempt
+f1/0
+standby 1 ip 1.1.3.254
+standby 1 priority 75
+standby 1 preempt
+}
+
+R2{
+f0/0
+standby 1 ip 1.1.3.254
+standby 1 priority 50
+standby 1 preempt
+f1/0
+standby 1 ip 1.1.2.254
+standby 1 priority 75
+standby 1 preempt
+}
+
+Step 4:
+Configure AAA Server on R2 {
+ip domain-name matthewchan.com
+crypto key generate rsa
+2048
+aaa new-model
+aaa authentication login default local enable
+line vty 0 15
+transport input ssh
+login authentication default
+}
+
+https://www.youtube.com/watch?v=RFQRM1B2AKA
